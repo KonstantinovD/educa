@@ -4,6 +4,9 @@ from django.views.generic.list import ListView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from .models import Course
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.shortcuts import redirect, get_object_or_404
+from django.views.generic.base import TemplateResponseMixin, View
+from .forms import ModuleFormSet
 
 
 class OwnerMixin(object):
@@ -71,3 +74,52 @@ class CourseDeleteView(PermissionRequiredMixin, OwnerCourseMixin,
     template_name = 'courses/manage/course/delete.html'
     success_url = reverse_lazy('manage_course_list')
     permission_required = 'courses.delete_course'
+
+
+class CourseModuleUpdateView(TemplateResponseMixin, View):
+    template_name = 'courses/manage/module/formset.html'
+    course = None
+
+    def get_formset(self, data=None):
+        return ModuleFormSet(instance=self.course,
+                             data=data)
+
+    def dispatch(self, request, pk):
+        self.course = get_object_or_404(Course,
+                                        id=pk,
+                                        owner=request.user)
+        return super(CourseModuleUpdateView, self).dispatch(request, pk)
+
+    def get(self, request, *args, **kwargs):
+        formset = self.get_formset()
+        return self.render_to_response({'course': self.course, 'formset': formset})
+
+    def post(self, request, *args, **kwargs):
+        formset = self.get_formset(data=request.POST)
+        if formset.is_valid():
+            formset.save()
+            return redirect('manage_course_list')
+        return self.render_to_response({'course': self.course,
+                                        'formset': formset})
+# Класс CourseModuleUpdateView обрабатывает действия, связанные с набором форм по сохранению, редактированию и удалению
+# модулей для конкретного курса. Этот обработчик наследуется от таких классов:
+#   - TemplateResponseMixin – примесь, которая добавит формирование HTML-шаблона и вернет его в качестве ответа
+#   на запрос. Она использует шаблон, имя которого задано в атрибуте template_name, и добавляет в дочерние классы метод
+#   render_to_response(), который сформирует результирующую страницу;
+#   - View – базовый класс для обработчиков Django. В этом обработчике мы описали четыре метода:
+#     1) get_formset() – метод, позволяющий избежать дублирования кода, который отвечает за формирование набора форм;
+#     2) dispatch() – метод, определенный в базовом классе View. Он принимает объект запроса и его параметры и пытается
+#     вызвать метод, который соответствует HTTP-методу запроса. Если запрос отправлен с помощью GET, его обработка будет
+#     делегирована методу get() обработчика; если POST – то методу post(). Внутри функции мы пытаемся получить объект
+#     типа Course с помощью get_object_or_404(), т. к. курс необходим как для GET-так и для POST-запросов, а затем
+#     сохраняем его в атрибут класса course;
+#     3) get() – метод, обрабатывающий GET-запрос. Мы создаем пустой набор форм ModuleFormSet и отображаем его в шаблоне
+#     с данными курса, используя для этого метод родительского класса render_to_response();
+#     4) post() – метод, обрабатывающий POST-запросы. При этом выполняются следующие шаги:
+#       - создается набор форм ModuleFormSet по отправленным данным;
+#       - происходит проверка данных с помощью метода is_valid() набора форм;
+#       - если все формы заполнены корректно, сохраняем объекты, вызвав метод save(). На этом этапе в базу данных будут
+#       сохранены не только данные курса, но и все изменения модулей. Затем перенаправляем пользователя на страницу по
+#       URL 'manage_course_list'. Если хотя бы одна форма набора заполнена некорректно, формируем страницу
+#       с отображением ошибок.
+
