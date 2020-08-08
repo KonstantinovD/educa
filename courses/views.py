@@ -14,6 +14,7 @@ from .models import Module, Content
 from braces.views import CsrfExemptMixin, JsonRequestResponseMixin
 from django.db.models import Count
 from .models import Subject
+from students.forms import CourseEnrollForm
 
 
 class OwnerMixin(object):
@@ -265,6 +266,14 @@ class CourseDetailView(DetailView):
     template_name = 'courses/course/detail.html'
     # например, {{ object.title }}, {{ subject.title }}, {{ course.modules.count }} на странице details.html
     # взяты все поля из модели Course
+
+    def get_context_data(self, **kwargs):
+        context = super(CourseDetailView, self).get_context_data(**kwargs)
+        context['enroll_form'] = CourseEnrollForm(initial={'course': self.object})
+        return context
+        # Мы переопределяем метод базового класса get_context_data(), чтобы добавить форму в контекст шаблона. Объект
+        # формы при этом содержит скрытое поле с ID курса, поэтому при нажатии кнопки на сервер будут отправлены данные
+        # курса и пользователя
 #   ...
 # обработчик наследуется от стандартного класса Django, DetailView, для отображения объекта конкретной модели.
 # Мы указали два атрибута: model и template_name. При обработке запроса Django ожидает, что в URL будет передан
