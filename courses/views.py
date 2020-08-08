@@ -202,3 +202,15 @@ class ContentDeleteView(View):
 # Обработчик ContentDeleteView получает объект типа Content по переданному ID и удаляет соответствующий объект модели
 # Text, Video, Image или File, после чего ликвидирует объект Content. При успешном завершении действия перенаправляет
 # пользователя на страницу по URLʼу с именем module_content_list.
+
+
+class ModuleContentListView(TemplateResponseMixin, View):
+    template_name = 'courses/manage/module/content_list.html'
+    # обработчик ModuleContentListView. Он получает из базы данных модуль по
+    # переданному ID и генерирует для него страницу подробностей.
+
+    def get(self, request, module_id):
+        module = get_object_or_404(Module,
+                                   id=module_id,
+                                   course__owner=request.user)
+        return self.render_to_response({'module': module})
