@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from .fields import OrderField
 
 
 class Subject(models.Model):
@@ -37,9 +38,17 @@ class Module(models.Model):
                                on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    order = OrderField(blank=True, for_fields=['course'])
+    # Новое поле называется order. Оно будет рассчитываться автоматически для каждого модуля в рамках одного курса,
+    # т. к. мы указали for_fields=['course']. Таким образом, при создании нового
+    # модуля его порядок будет больше на единицу, чем у предыдущего модуля курса.
 
     def __str__(self):
-        return self.title
+        return '{}. {}'.format(self.order, self.title)
+
+    class Meta:
+        ordering = ['order']
+        # Теперь определим сортировку по умолчанию в классе Meta для моделей Module и Content:
 
 
 class Content(models.Model):
@@ -58,6 +67,11 @@ class Content(models.Model):
     # указали условие model__in и значения 'text', 'video', 'image' и 'file'.
     object_id = models.PositiveIntegerField()
     item = GenericForeignKey('content_type', 'object_id')
+    order = OrderField(blank=True, for_fields=['module'])
+
+    class Meta:
+        ordering = ['order']
+
 #     Это модель Content. Модуль курса может содержать множество объектов этого типа, поэтому мы используем ForeignKey
 # на модель Module. Также мы выполнили обобщенную связь, чтобы соединить объекты типа Content с любой другой моделью,
 # представляющей тип содержимого. Помните, чтобы обобщенные связи работали, нам необходимо создать три поля в модели:
