@@ -7,6 +7,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.shortcuts import redirect, get_object_or_404
 from django.views.generic.base import TemplateResponseMixin, View
 from .forms import ModuleFormSet
+from django.forms.models import modelform_factory
+from django.apps import apps
+from .models import Module, Content
 
 
 class OwnerMixin(object):
@@ -123,3 +126,79 @@ class CourseModuleUpdateView(TemplateResponseMixin, View):
 #       URL 'manage_course_list'. Если хотя бы одна форма набора заполнена некорректно, формируем страницу
 #       с отображением ошибок.
 
+
+class ContentCreateUpdateView(TemplateResponseMixin, View):
+    module = None
+    model = None
+    obj = None
+    template_name = 'courses/manage/content/form.html'
+
+    def get_model(self, model_name):  # возвращает класс модели по переданному имени. Допустимые значения – Text, Video,
+        # Image и File. Мы обращаемся к модулю apps Django, чтобы получить класс модели.
+        # Если его не удалось найти по переданному имени, возвращаем None
+        if model_name in ['text', 'video', 'image', 'file']:
+            return apps.get_model(app_label='courses',
+                                  model_name=model_name)
+        return None
+
+    def get_form(self, model, *args, **kwargs):  # создает форму в зависимости от типа содержимого с помощью
+        # функции modelform_factory(). Так как модели Text, Video, Image и File содержат общие поля, исключим их из
+        # формы, чтобы пользователь заполнял только поле непосредственного содержимого (файл, текст, картинку или видео)
+        Form = modelform_factory(model, exclude=['owner',
+                                                 'order',
+                                                 'created',
+                                                 'updated'])
+        return Form(*args, **kwargs)
+
+    def dispatch(self, request, module_id, model_name, id=None):  # получает приведенные ниже данные из запроса
+        # и создает соответствующие объекты модуля, модели содержимого:
+        #   - module_id – идентификатор модуля, к которому привязано содержимое;
+        #   - model_name – имя модели содержимого;
+        #   - id – идентификатор изменяемого объекта.
+        self.module = get_object_or_404(Module,
+                                        id=module_id,
+                                        course__owner=request.user)
+        self.model = self.get_model(model_name)
+        if id:
+            self.obj = get_object_or_404(self.model, id=id,
+                                         owner=request.user)
+        return super(ContentCreateUpdateView, self)\
+            .dispatch(request, module_id, model_name, id)
+
+    def get(self, request, module_id, model_name, id=None):
+        # извлекает из GET-параметров запроса данные. Формирует модельные формы для объектов Text, Video, Image
+        # или File, если объект редактируется, т.е. указан self.obj. В противном случае мы отображаем пустую
+        # форму для создания объекта
+        form = self.get_form(self.model, instance=self.obj)
+        return self.render_to_response({'form': form, 'object': self.obj})
+
+    def post(self, request, module_id, model_name, id=None):  # обрабатывает данные POST-запроса, для чего создает
+        # модельную форму и валидирует ее. Если форма заполнена корректно, создает новый объект, указав текущего
+        # пользователя, request.user, владельцем. Если в запросе был передан ID, значит, объект изменяют, а не создают
+        form = self.get_form(self.model,
+                             instance=self.obj,
+                             data=request.POST,
+                             files=request.FILES)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.owner = request.user
+            obj.save()
+            if not id:
+                # Создаем новый объект.
+                Content.objects.create(module=self.module, item=obj)
+            return redirect('module_content_list', self.module.id)
+        return self.render_to_response({'form': form, 'object': self.obj})
+
+
+class ContentDeleteView(View):
+    def post(self, request, id):
+        content = get_object_or_404(Content,
+                                    id=id,
+                                    module__course__owner=request.user)
+        module = content.module
+        content.item.delete()
+        content.delete()
+        return redirect('module_content_list', module.id)
+# Обработчик ContentDeleteView получает объект типа Content по переданному ID и удаляет соответствующий объект модели
+# Text, Video, Image или File, после чего ликвидирует объект Content. При успешном завершении действия перенаправляет
+# пользователя на страницу по URLʼу с именем module_content_list.
