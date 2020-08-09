@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 """
 import os
 from pathlib import Path
+from django.urls import reverse_lazy
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'students.apps.StudentsConfig',
+    'embed_video',
 ]
 
 MIDDLEWARE = [
@@ -122,3 +124,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+# Для реализации перенаправления добавим в файл settings.py проекта educa следующие строки:
+LOGIN_REDIRECT_URL = reverse_lazy('student_course_list')
+# Это настройка, которую использует пакет Django, auth, для определения адреса, куда перенаправлять пользователя после
+# успешной авторизации на сайте, если параметр next не задан явно. Теперь при входе в аккаунт студент
+# будет автоматически переходить на список своих курсов
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')

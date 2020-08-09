@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from .fields import OrderField
+from django.template.loader import render_to_string
+from django.utils.safestring import mark_safe
 
 
 class Subject(models.Model):
@@ -98,6 +100,14 @@ class ItemBase(models.Model):
 
     def __str__(self):
         return self.title
+
+    def render(self):
+        # вызываем функцию render_to_string(), чтобы сгенерировать шаблон с контекстом и получить результат в виде
+        # строки. Каждый тип содержимого будет использовать соответствующий ему шаблон, полученный по названию модели.
+        # Чтобы динамически формировать имя шаблона, обратимся к атрибуту self._meta.model_name модели. Метод render()
+        # предоставляет общий интерфейс для генерации шаблона под конкретный тип содержимого.
+        return render_to_string('courses/content/{}.html'.format(
+            self._meta.model_name), {'item': self})
 # В этом фрагменте вы создали абстрактную модель ItemBase, задав в опциях класса Meta атрибут abstract=True.
 # Она содержит четыре поля: owner, title, created и updated, – которые будут общими для всех дочерних моделей.
 # Поле owner содержит данные пользователя, который создал объект. Так как в

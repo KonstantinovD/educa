@@ -153,3 +153,4 @@ fabric.properties
 # sqlite
 *.sqlite3
 /images/
+/media/

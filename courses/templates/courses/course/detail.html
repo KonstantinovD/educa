@@ -1,34 +1,40 @@
 {% extends "base.html" %}
+{% load cache %}
+
 {% block title %}
-{{ object.title }}
+    {{ object.title }}
 {% endblock %}
+
 {% block content %}
-{% with subject=course.subject %}
-<h1>
-{{ object.title }}
-</h1>
-<div class="module">
-<h2>Overview</h2>
-<p>
-<a href="{% url "course_list_subject" subject.slug %}">
-{{ subject.title }}</a>.
-{{ course.modules.count }} modules.
-Instructor: {{ course.owner.get_full_name }}
-</p>
-{{ object.overview|linebreaks }}
-{% if request.user.is_authenticated %}
-{# кнопка, по которой студенты смогут записаться на курс, и форма для отправки данных на URL с именем student_enroll_course #}
-{# Они видны на странице, если пользователь авторизован на сайте, иначе отображаем ссылку на страницу регистрации  #}
-<form action="{% url "student_enroll_course" %}" method="post">
-{{ enroll_form }}
-{% csrf_token %}
-<input type="submit" class="button" value="Enroll now">
-</form>
-{% else %}
-<a href="{% url "student_registration" %}" class="button">
-Register to enroll
-</a>
-{% endif %}
-</div>
-{% endwith %}
+    <h1>
+        {{ module.title }}
+    </h1>
+    <div class="contents">
+        <h3>Modules</h3>
+        <ul id="modules">
+        {% for m in object.modules.all %}
+            <li data-id="{{ m.id }}" {% if m == module %}class="selected"{% endif %}>
+                <a href="{% url "student_course_detail_module" object.id m.id %}">
+                    <span>
+                        Module <span class="order">{{ m.order|add:1 }}</span>
+                    </span>
+                    <br>
+                    {{ m.title }}
+                </a>
+            </li>
+        {% empty %}
+            <li>No modules yet.</li>
+        {% endfor %}
+        </ul>
+    </div>
+    <div class="module">
+        {% cache 600 module_contents module %}
+            {% for content in module.contents.all %}
+                {% with item=content.item %}
+                    <h2>{{ item.title }}</h2>
+                    {{ item.render }}
+                {% endwith %}
+            {% endfor %}
+        {% endcache %}
+    </div>
 {% endblock %}
